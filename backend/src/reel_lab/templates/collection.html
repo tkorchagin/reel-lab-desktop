@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reel Lab — sports reels</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d0f0e; --panel:#171b19; --line:#343c37; --text:#f1f4ef; --muted:#9da8a1; --lime:#b8f36b; --cyan:#6ed0d6; }
+    * { box-sizing: border-box; }
+    html, body { width:100%; height:100%; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; letter-spacing:0; }
+    button, input { font:inherit; }
+    button { color:inherit; }
+    .app { height:100%; display:grid; grid-template-rows:auto 1fr; }
+    header { min-height:68px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:10px 20px; border-bottom:1px solid var(--line); background:#111411; }
+    .brand { display:flex; align-items:baseline; gap:12px; }
+    .brand strong { font-size:18px; }
+    .brand span, .summary, .mode-status { color:var(--muted); font-size:12px; }
+    .header-tools { display:flex; align-items:center; gap:18px; }
+    .toggles { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .toggle { min-height:34px; display:flex; align-items:center; gap:7px; padding:0 9px; border:1px solid var(--line); border-radius:5px; color:var(--muted); font-size:12px; cursor:pointer; }
+    .toggle:has(input:checked) { color:var(--text); border-color:#566550; background:#1d251b; }
+    .toggle input { width:15px; height:15px; margin:0; accent-color:var(--lime); }
+    .workspace { min-height:0; display:grid; grid-template-columns:260px minmax(0,1fr); }
+    nav { overflow:auto; padding:14px 12px; border-right:1px solid var(--line); background:var(--panel); }
+    h1 { margin:4px 6px 12px; color:var(--muted); font-size:11px; text-transform:uppercase; }
+    .track-list { display:grid; gap:7px; }
+    .track { width:100%; min-height:66px; padding:10px; display:grid; grid-template-columns:30px minmax(0,1fr); gap:9px; align-items:start; border:1px solid transparent; border-radius:6px; background:transparent; text-align:left; cursor:pointer; }
+    .track:hover { background:#202622; }
+    .track.active { background:#20281d; border-color:var(--lime); }
+    .number { color:var(--muted); font-size:12px; }
+    .name { display:block; font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .meta { display:block; margin-top:5px; color:var(--cyan); font-size:10px; }
+    main { min-width:0; min-height:0; background:#0a0c0b; }
+    iframe { width:100%; height:100%; border:0; display:block; }
+    @media(max-width:820px){ header{align-items:flex-start;flex-direction:column;gap:8px}.header-tools{width:100%;justify-content:space-between}.summary{display:none}.workspace{grid-template-columns:1fr;grid-template-rows:auto 1fr}nav{border-right:0;border-bottom:1px solid var(--line);padding:9px;overflow-x:auto}.track-list{display:flex}.track{width:190px;flex:0 0 190px}h1{display:none} }
+    @media(max-width:520px){ header{padding:9px 10px}.brand span{display:none}.header-tools{align-items:flex-start;flex-direction:column;gap:7px}.toggles{width:100%;gap:6px}.toggle{flex:1 1 auto;justify-content:center}.mode-status{font-size:10px} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand"><strong>SPORT REELS</strong><span>30 seconds · 8 editing modes</span></div>
+      <div class="header-tools">
+        <div class="toggles">
+          <label class="toggle"><input id="allToggle" type="checkbox" checked>Use every source</label>
+          <label class="toggle"><input id="photosToggle" type="checkbox" checked>Include photos</label>
+          <label class="toggle"><input id="orderToggle" type="checkbox" checked>Keep chronological order</label>
+        </div>
+        <span id="modeStatus" class="mode-status"></span>
+        <span class="summary">{{ tracks | length }} tracks · {{ entries | sum(attribute='variant_count') }} variants</span>
+      </div>
+    </header>
+    <div class="workspace">
+      <nav>
+        <h1>Music</h1>
+        <div class="track-list">
+          {% for track in tracks %}
+          <button class="track{% if loop.first %} active{% endif %}" type="button" data-track="{{ track.key }}">
+            <span class="number">{{ "%02d" | format(loop.index) }}</span>
+            <span><span class="name">{{ track.title }}</span><span class="meta">{{ track.bpm | round(1) }} BPM</span></span>
+          </button>
+          {% endfor %}
+        </div>
+      </nav>
+      <main><iframe id="viewer" title="Reel variants"></iframe></main>
+    </div>
+  </div>
+  <script>
+    const entries = {{ entries | tojson }};
+    const viewer = document.getElementById('viewer');
+    const allToggle = document.getElementById('allToggle');
+    const photosToggle = document.getElementById('photosToggle');
+    const orderToggle = document.getElementById('orderToggle');
+    const modeStatus = document.getElementById('modeStatus');
+    let activeTrack = {{ tracks[0].key | tojson }};
+
+    function updateViewer() {
+      const entry = entries.find(item => item.track_key === activeTrack && item.include_all === allToggle.checked && item.include_photos === photosToggle.checked && item.preserve_order === orderToggle.checked);
+      if (!entry) {
+        modeStatus.textContent = 'This mode has not been generated yet';
+        return;
+      }
+      if (viewer.dataset.url !== entry.preview_url) {
+        viewer.dataset.url = entry.preview_url;
+        viewer.src = entry.preview_url;
+      }
+      const sourceMode = entry.include_all ? 'all sources' : 'best sources';
+      const photoMode = entry.include_photos ? 'with photos' : 'without photos';
+      const orderMode = entry.preserve_order ? 'chronological' : 'by music energy';
+      modeStatus.textContent = `${sourceMode} · ${photoMode} · ${orderMode} · 10 variants · best #${entry.best_variant}`;
+    }
+
+    document.querySelectorAll('.track').forEach(button => button.addEventListener('click', () => {
+      activeTrack = button.dataset.track;
+      document.querySelectorAll('.track').forEach(item => item.classList.toggle('active', item === button));
+      updateViewer();
+    }));
+    allToggle.addEventListener('change', updateViewer);
+    photosToggle.addEventListener('change', updateViewer);
+    orderToggle.addEventListener('change', updateViewer);
+    updateViewer();
+  </script>
+</body>
+</html>

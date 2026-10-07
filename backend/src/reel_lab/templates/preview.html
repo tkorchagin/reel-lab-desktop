@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reel Lab — variant preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #0d0f0e;
+      --panel: #171b19;
+      --panel-strong: #202622;
+      --line: #343c37;
+      --text: #f1f4ef;
+      --muted: #9da8a1;
+      --lime: #b8f36b;
+      --coral: #ff8066;
+      --cyan: #6ed0d6;
+      --radius: 6px;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .app { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    .topbar {
+      min-height: 68px;
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(280px, 2fr) auto;
+      align-items: center;
+      gap: 18px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #111411;
+    }
+    .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+    .brand strong { font-size: 18px; font-weight: 760; white-space: nowrap; }
+    .brand span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .transport { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px; }
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-strong);
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .icon-button:hover { border-color: var(--lime); }
+    .scrubber { width: 100%; accent-color: var(--lime); }
+    .time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
+    .meta { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    .tag { border: 1px solid var(--line); padding: 5px 8px; border-radius: 4px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .download-control { width: 156px; display: grid; gap: 4px; }
+    .download-button {
+      width: 156px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 12px;
+      border: 1px solid var(--lime);
+      border-radius: var(--radius);
+      background: var(--lime);
+      color: #15200f;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+    .download-button:hover { background: #caf98c; }
+    .download-button:disabled { cursor: wait; opacity: 0.68; }
+    .download-icon { font-size: 17px; line-height: 1; }
+    .export-progress {
+      width: 100%;
+      height: 3px;
+      overflow: hidden;
+      border-radius: 2px;
+      background: #29302c;
+      opacity: 0;
+      transition: opacity 160ms ease;
+    }
+    .export-progress.active { opacity: 1; }
+    .export-progress-fill {
+      width: 100%;
+      height: 100%;
+      background: var(--cyan);
+      transform: scaleX(0);
+      transform-origin: left center;
+      transition: transform 280ms ease;
+    }
+    .export-progress.error .export-progress-fill { background: var(--coral); }
+    .workspace { display: grid; grid-template-columns: 260px minmax(0, 1fr) 310px; min-height: 0; }
+    .sidebar, .inspector { background: var(--panel); min-height: 0; overflow: auto; }
+    .sidebar { border-right: 1px solid var(--line); padding: 16px 12px; }
+    .inspector { border-left: 1px solid var(--line); padding: 18px; }
+    .panel-title { margin: 0 4px 12px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .variant-list { display: grid; gap: 6px; }
+    .variant {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      min-height: 54px;
+      padding: 8px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    .variant:hover { background: var(--panel-strong); }
+    .variant.active { border-color: var(--lime); background: #20281d; }
+    .variant-number { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+    .variant-copy { min-width: 0; }
+    .variant-name { display: block; font-size: 13px; font-weight: 680; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .variant-desc { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .variant-score { color: var(--cyan); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .stage-area { min-width: 0; padding: 18px; display: grid; grid-template-rows: minmax(280px, 1fr) auto; gap: 16px; overflow: hidden; }
+    .stage-wrap { min-height: 0; display: grid; place-items: center; }
+    .stage {
+      position: relative;
+      height: min(62vh, 720px);
+      max-height: 100%;
+      aspect-ratio: 9 / 16;
+      overflow: hidden;
+      background: #050505;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .stage video, .stage img { width: 100%; height: 100%; object-fit: cover; background: #050505; }
+    .stage img { will-change: transform; }
+    .stage img[hidden], .stage video[hidden] { display: none; }
+    .stage-overlay { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+    .stage-label { max-width: 72%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 7px; border-radius: 4px; background: rgba(10, 12, 11, 0.82); color: #d8ddd9; font-size: 10px; }
+    .timeline-area { min-width: 0; }
+    .waveform { position: relative; height: 48px; display: flex; align-items: end; gap: 1px; padding: 0 1px; border-bottom: 1px solid var(--line); cursor: pointer; overflow: hidden; }
+    .energy-bar { flex: 1 1 0; min-width: 1px; background: var(--cyan); opacity: 0.48; }
+    .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--coral); pointer-events: none; z-index: 5; }
+    .timeline { position: relative; display: flex; height: 46px; margin-top: 7px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: #111411; }
+    .clip { min-width: 2px; border: 0; border-right: 1px solid #0d0f0e; background: #2b4735; cursor: pointer; padding: 0; }
+    .clip:nth-child(3n+2) { background: #31525b; }
+    .clip:nth-child(3n) { background: #59413d; }
+    .clip.active { box-shadow: inset 0 0 0 2px var(--lime); z-index: 2; }
+    .inspector h2 { margin: 0 0 6px; font-size: 20px; }
+    .inspector .description { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 0 0 20px; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .stat { background: var(--panel); padding: 12px; min-width: 0; }
+    .stat span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 5px; }
+    .stat strong { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .section-list { display: grid; gap: 7px; margin-top: 20px; }
+    .section-row { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 28px; font-size: 11px; }
+    .section-dot { width: 7px; height: 7px; background: var(--coral); }
+    .section-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+    @media (max-width: 1040px) {
+      .workspace { grid-template-columns: 220px minmax(0, 1fr); }
+      .inspector { display: none; }
+    }
+    @media (max-width: 900px) {
+      .topbar { grid-template-columns: 1fr auto; gap: 10px; padding: 10px 12px; }
+      .transport { grid-column: 1 / -1; grid-row: 2; }
+      .brand span { display: none; }
+    }
+    @media (max-width: 720px) {
+      .workspace { display: flex; flex-direction: column; }
+      .sidebar { order: 2; border-right: 0; border-top: 1px solid var(--line); overflow: visible; }
+      .variant-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stage-area { padding: 12px; overflow: visible; }
+      .stage { height: min(58vh, 580px); }
+      .variant { min-height: 50px; }
+      .variant-desc { display: none; }
+    }
+    @media (max-width: 520px) { .meta .tag { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><strong>REEL LAB</strong><span>edit preview</span></div>
+      <div class="transport">
+        <button id="playButton" class="icon-button" type="button" title="Play">▶</button>
+        <input id="scrubber" class="scrubber" type="range" min="0" max="1000" value="0" aria-label="Playback position">
+        <span id="timeLabel" class="time">00:00 / 00:00</span>
+      </div>
+      <div class="meta">
+        <span class="tag">{{ preview_data.bpm | round(1) }} BPM</span>
+        <span class="tag">{{ preview_data.analyzer }}</span>
+        <div class="download-control">
+          <button id="downloadButton" class="download-button" type="button" title="Download selected variant">
+            <span class="download-icon" aria-hidden="true">↓</span>
+            <span id="downloadLabel">Download video</span>
+          </button>
+          <div id="exportProgress" class="export-progress" role="progressbar" aria-label="Export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="exportProgressFill" class="export-progress-fill"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <h1 class="panel-title">Edit variants</h1>
+        <div id="variantList" class="variant-list"></div>
+      </aside>
+
+      <main class="stage-area">
+        <div class="stage-wrap">
+          <div class="stage">
+            <video id="stageVideo" muted playsinline preload="metadata"></video>
+            <img id="stageImage" alt="Variant frame" hidden>
+            <div class="stage-overlay">
+              <span id="sourceLabel" class="stage-label"></span>
+              <span id="clipLabel" class="stage-label"></span>
+            </div>
+          </div>
+        </div>
+        <div class="timeline-area">
+          <div id="waveform" class="waveform"><div id="playhead" class="playhead"></div></div>
+          <div id="timeline" class="timeline"></div>
+        </div>
+      </main>
+
+      <aside class="inspector">
+        <h1 class="panel-title">Current variant</h1>
+        <h2 id="variantTitle"></h2>
+        <p id="variantDescription" class="description"></p>
+        <div class="stat-grid">
+          <div class="stat"><span>Score</span><strong id="variantScore"></strong></div>
+          <div class="stat"><span>Shots</span><strong id="clipCount"></strong></div>
+          <div class="stat"><span>Duration</span><strong id="durationStat"></strong></div>
+          <div class="stat"><span>Current shot</span><strong id="currentClipStat"></strong></div>
+        </div>
+        <div id="sectionList" class="section-list"></div>
+      </aside>
+    </div>
+  </div>
+  <audio id="track" preload="metadata" src="{{ preview_data.track_url }}"></audio>
+
+  <script>
+    const data = {{ preview_data | tojson }};
+    const track = document.getElementById('track');
+    const video = document.getElementById('stageVideo');
+    const image = document.getElementById('stageImage');
+    const playButton = document.getElementById('playButton');
+    const scrubber = document.getElementById('scrubber');
+    const timeLabel = document.getElementById('timeLabel');
+    const playhead = document.getElementById('playhead');
+    const downloadButton = document.getElementById('downloadButton');
+    const downloadLabel = document.getElementById('downloadLabel');
+    const exportProgress = document.getElementById('exportProgress');
+    const exportProgressFill = document.getElementById('exportProgressFill');
+    let activeVariant = data.variants[0];
+    let activeItemIndex = -1;
+    let frameRequest = null;
+
+    function formatTime(value) {
+      const total = Math.max(0, Math.floor(value));
+      return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    }
+
+    function resetDownloadButton() {
+      downloadLabel.textContent = 'Download video';
+      downloadButton.title = 'Download selected variant';
+      setExportProgress(0, false);
+    }
+
+    function setExportProgress(value, active = true, error = false) {
+      const progress = Math.max(0, Math.min(100, Number(value) || 0));
+      exportProgress.classList.toggle('active', active);
+      exportProgress.classList.toggle('error', error);
+      exportProgress.setAttribute('aria-valuenow', String(progress));
+      exportProgressFill.style.transform = `scaleX(${progress / 100})`;
+    }
+
+    function showExportState(job) {
+      setExportProgress(job.progress, true, job.status === 'error');
+      if (job.status === 'queued') downloadLabel.textContent = 'Queued…';
+      if (job.status === 'rendering') downloadLabel.textContent = `Clips ${job.progress}%`;
+      if (job.status === 'finalizing') downloadLabel.textContent = 'Assembling MP4…';
+    }
+
+    async function waitForExport(job) {
+      let current = job;
+      while (current.status !== 'ready' && current.status !== 'error') {
+        showExportState(current);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const response = await fetch(`/api/export/${current.job_id}`, { cache: 'no-store' });
+        current = await response.json();
+        if (!response.ok) throw new Error(current.error || 'Could not fetch progress');
+      }
+      if (current.status === 'error') throw new Error(current.error || 'Could not export video');
+      return current;
+    }
+
+    function setVariant(id) {
+      activeVariant = data.variants.find(item => item.id === id);
+      activeItemIndex = -1;
+      track.pause();
+      track.currentTime = 0;
+      playButton.textContent = '▶';
+      if (!downloadButton.disabled) resetDownloadButton();
+      document.querySelectorAll('.variant').forEach(button => {
+        button.classList.toggle('active', Number(button.dataset.id) === id);
+      });
+      document.getElementById('variantTitle').textContent = activeVariant.name;
+      document.getElementById('variantDescription').textContent = activeVariant.description;
+      document.getElementById('variantScore').textContent = Math.round(activeVariant.score * 100) + '%';
+      document.getElementById('clipCount').textContent = activeVariant.items.length;
+      document.getElementById('durationStat').textContent = formatTime(data.duration);
+      renderTimeline();
+      syncMedia(0, true);
+      updateTransport(0);
+    }
+
+    function renderVariants() {
+      const container = document.getElementById('variantList');
+      data.variants.forEach(variant => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'variant';
+        button.dataset.id = variant.id;
+        button.innerHTML = `<span class="variant-number">${String(variant.id).padStart(2, '0')}</span><span class="variant-copy"><span class="variant-name">${variant.name}</span><span class="variant-desc">${variant.description}</span></span><span class="variant-score">${Math.round(variant.score * 100)}</span>`;
+        button.addEventListener('click', () => setVariant(variant.id));
+        container.appendChild(button);
+      });
+    }
+
+    function renderWaveform() {
+      const waveform = document.getElementById('waveform');
+      data.energy.forEach(point => {
+        const bar = document.createElement('span');
+        bar.className = 'energy-bar';
+        bar.style.height = `${Math.max(5, point.value * 44)}px`;
+        waveform.insertBefore(bar, playhead);
+      });
+      waveform.addEventListener('click', event => {
+        const bounds = waveform.getBoundingClientRect();
+        seekTo(((event.clientX - bounds.left) / bounds.width) * data.duration);
+      });
+    }
+
+    function renderTimeline() {
+      const timeline = document.getElementById('timeline');
+      timeline.replaceChildren();
+      activeVariant.items.forEach((item, index) => {
+        const clip = document.createElement('button');
+        clip.type = 'button';
+        clip.className = 'clip';
+        clip.dataset.index = index;
+        clip.style.width = `${((item.timeline_end - item.timeline_start) / data.duration) * 100}%`;
+        clip.title = `${item.source_name} · ${item.timeline_start.toFixed(2)}s`;
+        clip.addEventListener('click', () => seekTo(item.timeline_start));
+        timeline.appendChild(clip);
+      });
+    }
+
+    function seekTo(value) {
+      track.currentTime = Math.min(data.duration, Math.max(0, value));
+      syncMedia(track.currentTime, true);
+      updateTransport(track.currentTime);
+    }
+
+    function findItemIndex(time) {
+      const index = activeVariant.items.findIndex(item => time >= item.timeline_start && time < item.timeline_end);
+      return index >= 0 ? index : activeVariant.items.length - 1;
+    }
+
+    function syncMedia(time, force = false) {
+      const index = findItemIndex(time);
+      const item = activeVariant.items[index];
+      if (!item) return;
+      const sourceTime = item.source_start + Math.max(0, time - item.timeline_start);
+      const objectPosition = `${Math.round(item.focus_x * 100)}% ${Math.round(item.focus_y * 100)}%`;
+      video.style.objectPosition = objectPosition;
+      image.style.objectPosition = objectPosition;
+      image.style.transformOrigin = objectPosition;
+      if (force || index !== activeItemIndex) {
+        activeItemIndex = index;
+        document.querySelectorAll('.clip').forEach((clip, clipIndex) => clip.classList.toggle('active', clipIndex === index));
+        document.getElementById('sourceLabel').textContent = item.source_name;
+        document.getElementById('clipLabel').textContent = `${index + 1} / ${activeVariant.items.length}`;
+        document.getElementById('currentClipStat').textContent = `${index + 1}`;
+        if (item.kind === 'photo') {
+          video.pause();
+          video.hidden = true;
+          image.hidden = false;
+          image.src = item.asset_url;
+        } else {
+          image.hidden = true;
+          video.hidden = false;
+          if (video.dataset.asset !== item.asset_url) {
+            video.dataset.asset = item.asset_url;
+            video.src = item.asset_url;
+            video.addEventListener('loadedmetadata', () => {
+              video.currentTime = sourceTime;
+              if (!track.paused) video.play().catch(() => {});
+            }, { once: true });
+          } else {
+            video.currentTime = sourceTime;
+            if (!track.paused) video.play().catch(() => {});
+          }
+        }
+      } else if (!video.hidden && Math.abs(video.currentTime - sourceTime) > 0.32) {
+        video.currentTime = sourceTime;
+      }
+      if (item.kind === 'photo') updatePhotoMotion(item, time);
+    }
+
+    function updatePhotoMotion(item, time) {
+      const progress = Math.max(0, Math.min(1, (time - item.timeline_start) / Math.max(0.01, item.timeline_end - item.timeline_start)));
+      const scale = item.motion === 'zoom-out' ? 1.10 - 0.10 * progress : 1 + 0.10 * progress;
+      image.style.transform = `scale(${scale.toFixed(4)})`;
+    }
+
+    function updateTransport(time) {
+      const ratio = data.duration ? time / data.duration : 0;
+      scrubber.value = Math.round(ratio * 1000);
+      playhead.style.left = `${ratio * 100}%`;
+      timeLabel.textContent = `${formatTime(time)} / ${formatTime(data.duration)}`;
+    }
+
+    function tick() {
+      syncMedia(track.currentTime);
+      updateTransport(track.currentTime);
+      if (!track.paused) frameRequest = requestAnimationFrame(tick);
+    }
+
+    playButton.addEventListener('click', async () => {
+      if (track.paused) {
+        try {
+          await track.play();
+          if (!video.hidden) await video.play();
+          playButton.textContent = '❚❚';
+          playButton.title = 'Pause';
+          cancelAnimationFrame(frameRequest);
+          tick();
+        } catch (error) {
+          playButton.textContent = '▶';
+          playButton.title = 'Could not play media';
+        }
+      } else {
+        track.pause();
+        video.pause();
+        playButton.textContent = '▶';
+        playButton.title = 'Play';
+      }
+    });
+    downloadButton.addEventListener('click', async () => {
+      const exportedVariantId = activeVariant.id;
+      downloadButton.disabled = true;
+      downloadLabel.textContent = 'Starting…';
+      downloadButton.title = 'Export selected variant';
+      setExportProgress(2);
+      try {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        const previewIndex = parts.lastIndexOf('preview');
+        const run = previewIndex > 0 ? parts.slice(0, previewIndex).join('/') : '.';
+        const response = await fetch('/api/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ run, variant: exportedVariantId }),
+        });
+        let result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not export video');
+        result = await waitForExport(result);
+        setExportProgress(100);
+        const link = document.createElement('a');
+        link.href = result.url;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        downloadLabel.textContent = 'Download again';
+        downloadButton.title = 'Download again';
+        setTimeout(() => {
+          if (activeVariant.id === exportedVariantId && !downloadButton.disabled) {
+            exportProgress.classList.remove('active');
+          }
+        }, 900);
+      } catch (error) {
+        downloadLabel.textContent = 'Export failed';
+        downloadButton.title = error.message;
+        setExportProgress(100, true, true);
+      } finally {
+        downloadButton.disabled = false;
+        if (activeVariant.id !== exportedVariantId) resetDownloadButton();
+      }
+    });
+    scrubber.addEventListener('input', () => seekTo((Number(scrubber.value) / 1000) * data.duration));
+    track.addEventListener('ended', () => {
+      playButton.textContent = '▶';
+      video.pause();
+    });
+
+    function renderSections() {
+      const list = document.getElementById('sectionList');
+      data.sections.forEach(section => {
+        const row = document.createElement('div');
+        row.className = 'section-row';
+        row.innerHTML = `<span class="section-dot"></span><span>${section.label}</span><span class="section-time">${formatTime(section.start)}</span>`;
+        list.appendChild(row);
+      });
+    }
+
+    renderVariants();
+    renderWaveform();
+    renderSections();
+    setVariant(activeVariant.id);
+  </script>
+</body>
+</html>

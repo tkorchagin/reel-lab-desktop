@@ -1,0 +1,53 @@
+[project]
+name = "reel-lab"
+version = "0.1.0"
+description = "Automatic music-aware reel planning, preview, and export"
+readme = "README.md"
+authors = [
+    { name = "Timofey Korchagin", email = "tkorchagin@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.18.5",
+    "fastapi>=0.140.0",
+    "jinja2>=3.1.6",
+    "librosa>=0.11.0",
+    "numpy>=2.4.6",
+    "pillow>=12.3.0",
+    "pillow-heif>=1.5.0",
+    "python-multipart>=0.0.32",
+    "rich>=15.0.0",
+    "scenedetect>=0.7.1",
+    "soundfile>=0.14.0",
+    "sqlalchemy>=2.0.51",
+    "typer>=0.27.0",
+    "uvicorn>=0.51.0",
+]
+
+[project.scripts]
+reel-lab = "reel_lab.cli:app"
+
+[project.optional-dependencies]
+advanced = [
+    "beat-this>=1.1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.0",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

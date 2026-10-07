@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reel Lab — reference edit</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d0f0e; --panel:#181c19; --line:#343b36; --text:#f1f4ef; --muted:#9ba69e; --lime:#b8f36b; --coral:#ff8066; --cyan:#6ed0d6; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; letter-spacing:0; }
+    .topbar { height:64px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 20px; border-bottom:1px solid var(--line); background:#111411; }
+    .topbar strong { font-size:17px; }
+    .topbar span { color:var(--muted); font-size:12px; }
+    .layout { display:grid; grid-template-columns:minmax(300px, 680px) minmax(280px, 1fr); min-height:calc(100vh - 64px); }
+    .viewer { padding:20px; display:grid; align-content:start; gap:18px; border-right:1px solid var(--line); }
+    video { width:100%; max-height:62vh; background:#050505; border:1px solid var(--line); border-radius:6px; }
+    .lanes { display:grid; gap:10px; }
+    .lane { display:grid; grid-template-columns:82px 1fr; align-items:center; gap:10px; }
+    .lane-label { color:var(--muted); font-size:11px; text-align:right; }
+    .track { position:relative; height:34px; background:var(--panel); border:1px solid var(--line); overflow:hidden; cursor:pointer; }
+    .marker { position:absolute; top:0; bottom:0; width:1px; background:var(--cyan); opacity:.65; }
+    .marker.downbeat { width:2px; background:var(--lime); opacity:.9; }
+    .marker.cut { width:2px; background:var(--coral); opacity:1; cursor:pointer; }
+    .marker.section { width:3px; background:#ffffff; opacity:.72; }
+    .playhead { position:absolute; top:0; bottom:0; width:2px; background:#ffffff; z-index:5; pointer-events:none; }
+    .report { padding:20px; overflow:auto; }
+    h1 { margin:0 0 6px; font-size:24px; }
+    .subtitle { margin:0 0 22px; color:var(--muted); font-size:13px; }
+    .metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px; border:1px solid var(--line); background:var(--line); }
+    .metric { min-height:92px; padding:14px; background:var(--panel); }
+    .metric span { display:block; color:var(--muted); font-size:11px; margin-bottom:9px; }
+    .metric strong { font-size:24px; font-variant-numeric:tabular-nums; }
+    .legend { display:flex; flex-wrap:wrap; gap:12px; margin-top:22px; color:var(--muted); font-size:11px; }
+    .legend i { display:inline-block; width:8px; height:8px; margin-right:5px; }
+    .cut-table { margin-top:22px; display:grid; gap:1px; background:var(--line); border:1px solid var(--line); }
+    .cut-row { display:grid; grid-template-columns:72px 1fr 100px; gap:10px; padding:8px 10px; background:var(--panel); font-size:11px; }
+    .cut-row span:last-child { color:var(--muted); text-align:right; }
+    @media (max-width:820px) { .layout { grid-template-columns:1fr; } .viewer { border-right:0; border-bottom:1px solid var(--line); } .metrics { grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="topbar"><strong>REEL LAB · REFERENCE</strong><span>{{ data.bpm | round(1) }} BPM · {{ data.analyzer }}</span></header>
+  <main class="layout">
+    <section class="viewer">
+      <video id="video" controls preload="metadata" src="{{ data.video_url }}"></video>
+      <div id="lanes" class="lanes"></div>
+    </section>
+    <aside class="report">
+      <h1>Cuts against the music</h1>
+      <p class="subtitle">How closely the reference edit follows the detected beat grid.</p>
+      <div class="metrics">
+        <div class="metric"><span>Visual cuts</span><strong>{{ data.summary.visual_cut_count }}</strong></div>
+        <div class="metric"><span>Cuts per minute</span><strong>{{ data.summary.cuts_per_minute }}</strong></div>
+        <div class="metric"><span>Beat alignment ±120 ms</span><strong>{{ (data.summary.beat_hit_rate_120ms * 100) | round | int }}%</strong></div>
+        <div class="metric"><span>Beat alignment ±250 ms</span><strong>{{ (data.summary.beat_hit_rate_250ms * 100) | round | int }}%</strong></div>
+        <div class="metric"><span>Downbeat alignment ±180 ms</span><strong>{{ (data.summary.downbeat_hit_rate_180ms * 100) | round | int }}%</strong></div>
+        <div class="metric"><span>Median offset</span><strong>{{ data.summary.median_beat_offset_ms | round | int }} ms</strong></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--coral)"></i>cut</span><span><i style="background:var(--cyan)"></i>beat</span><span><i style="background:var(--lime)"></i>downbeat</span><span><i style="background:#fff"></i>section</span></div>
+      <div id="cutTable" class="cut-table"></div>
+    </aside>
+  </main>
+  <script>
+    const data = {{ data | tojson }};
+    const video = document.getElementById('video');
+    const lanes = document.getElementById('lanes');
+    const laneData = [
+      ['Cuts', data.cuts.map(item => ({time:item.time, cls:'cut'}))],
+      ['Beats', data.beats.map(time => ({time, cls:'beat'}))],
+      ['Downbeats', data.downbeats.map(time => ({time, cls:'downbeat'}))],
+      ['Sections', data.sections.slice(1).map(item => ({time:item.start, cls:'section'}))]
+    ];
+    laneData.forEach(([label, markers]) => {
+      const row = document.createElement('div'); row.className='lane';
+      const name = document.createElement('span'); name.className='lane-label'; name.textContent=label;
+      const track = document.createElement('div'); track.className='track';
+      const playhead = document.createElement('span'); playhead.className='playhead'; track.appendChild(playhead);
+      markers.forEach(marker => { const node=document.createElement('span'); node.className=`marker ${marker.cls}`; node.style.left=`${marker.time/data.summary.duration*100}%`; node.title=`${marker.time.toFixed(2)}s`; node.addEventListener('click', event => { event.stopPropagation(); video.currentTime=marker.time; }); track.appendChild(node); });
+      track.addEventListener('click', event => { const box=track.getBoundingClientRect(); video.currentTime=(event.clientX-box.left)/box.width*data.summary.duration; });
+      row.append(name,track); lanes.appendChild(row);
+    });
+    video.addEventListener('timeupdate', () => document.querySelectorAll('.playhead').forEach(node => node.style.left=`${video.currentTime/data.summary.duration*100}%`));
+    const table=document.getElementById('cutTable');
+    data.cuts.slice(0,80).forEach((cut,index) => { const row=document.createElement('div'); row.className='cut-row'; row.innerHTML=`<span>#${String(index+1).padStart(3,'0')}</span><span>${cut.label}</span><span>${cut.time.toFixed(2)} s · ${cut.beat_offset_ms ?? '—'} ms</span>`; row.addEventListener('click',()=>video.currentTime=cut.time); table.appendChild(row); });
+  </script>
+</body>
+</html>

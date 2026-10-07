@@ -1,0 +1,14 @@
+{
+  "tracks": [
+    {
+      "id": "reel-lab-demo-dance-field-cc0",
+      "file": "dance-field.mp3",
+      "title": "Dance field",
+      "artist": "Centurion_of_war",
+      "description": "An upbeat electronic starter track, released under CC0 1.0.",
+      "genres": ["electronic", "dance"],
+      "source": "https://opengameart.org/content/dance-field",
+      "order": 10
+    }
+  ]
+}
